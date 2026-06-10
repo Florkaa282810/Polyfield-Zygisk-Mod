@@ -1,0 +1,37 @@
+name: Build Zygisk Module
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Android NDK
+      uses: android-ndk/setup-ndk@v1
+      with:
+        ndk: '22.0.7026061' # NDK version specified in build.gradle
+
+    - name: Build Zygisk Module
+      run: |
+        cd src/main/jni
+        ${ANDROID_NDK_HOME}/ndk-build NDK_PROJECT_PATH=. APP_BUILD_SCRIPT=Android.mk
+
+    - name: Upload ARM64-v8a Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: zygisk-module-arm64-v8a
+        path: src/main/obj/local/arm64-v8a/libfoxcheats.so
+
+    - name: Upload armeabi-v7a Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: zygisk-module-armeabi-v7a
+        path: src/main/obj/local/armeabi-v7a/libfoxcheats.so
