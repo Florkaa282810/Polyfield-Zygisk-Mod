@@ -15,23 +15,23 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Set up Android NDK
-      uses: android-ndk/setup-ndk@v1
+      uses: nttld/setup-ndk@v1
       with:
-        ndk: '22.0.7026061' # NDK version specified in build.gradle
+        ndk-version: r22b # NDK version 22.0.7026061 is r22b
 
     - name: Build Zygisk Module
       run: |
         cd src/main/jni
-        ${ANDROID_NDK_HOME}/ndk-build NDK_PROJECT_PATH=. APP_BUILD_SCRIPT=Android.mk
+        ndk-build NDK_PROJECT_PATH=. APP_BUILD_SCRIPT=Android.mk APP_ABI="armeabi-v7a arm64-v8a"
 
     - name: Upload ARM64-v8a Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: zygisk-module-arm64-v8a
         path: src/main/obj/local/arm64-v8a/libfoxcheats.so
 
     - name: Upload armeabi-v7a Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: zygisk-module-armeabi-v7a
         path: src/main/obj/local/armeabi-v7a/libfoxcheats.so
