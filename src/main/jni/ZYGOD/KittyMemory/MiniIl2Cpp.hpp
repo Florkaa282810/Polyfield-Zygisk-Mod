@@ -15,8 +15,8 @@
 #include <android/log.h>
 #include <inttypes.h>
 #include <unordered_map>
-#include <KittyMemory.hpp>
-#include <KittyScanner.hpp>
+#include "KittyMemory.h"
+#include "KittyUtils.h"
 
 #define IL2CPP_LOG_TAG "MiniIL2CPP"
 
@@ -83,8 +83,7 @@ namespace MiniIl2Cpp_Internal
         if (isinit) return;
         KittyMemory::ProcMap il2cpp = KittyMemory::getElfBaseMap("libil2cpp.so");
         if (!il2cpp.isValid()) return;
-        auto handle = KittyScanner::ElfScanner::createWithMap(il2cpp);
-        #define RES_(a) a = decltype(a)(handle.findSymbol(#a))
+        #define RES_(a) a = decltype(a)(il2cpp.findSymbol(#a))
         RES_(il2cpp_domain_get);
         RES_(il2cpp_domain_get_assemblies);
         RES_(il2cpp_assembly_get_image);

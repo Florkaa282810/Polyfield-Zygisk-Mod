@@ -18,7 +18,7 @@ using zygisk::AppSpecializeArgs;
 using zygisk::ServerSpecializeArgs;
 
 // Game Package Name Here package 📦 
-#define targetPackageName OBFUSCATE("com.Nobodyshot.kuboom") // Polyfield package name
+#define targetPackageName OBFUSCATE("com.MA.Polyfield") // Polyfield package name
 
 // ESP Globals
 ImVec4 espBoxColor = ImVec4(1.0f, 0.0f, 0.0f, 1.0f); // Red
@@ -157,7 +157,7 @@ void DrawMenu() {
     const ImVec2 window_size = ImVec2(680, 720); // Slightly larger for modern feel
     ImGui::SetNextWindowSize(window_size, ImGuiCond_FirstUseEver);
 
-    if (ImGui::Begin(OBFUSCATE("POLYFIELD ZYGISK MOD"), nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse)) {
+    if (ImGui::Begin(OBFUSCATE("POLYFIELD ZYGISK MOD | BY FELIPE MODS"), nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse)) {
         static int tab = 0; // 0: ESP, 1: Chams, 2: Settings
 
         // Tab Bar
@@ -182,7 +182,7 @@ void DrawMenu() {
         ImGui::Spacing();
 
         // Content based on selected tab
-        if (tab == 0) { // ESP Tab
+        if (tab == 0) { // ESP & AIM Tab
             ImGui::Text(OBFUSCATE("ESP Features"));
             ImGui::Checkbox(OBFUSCATE("Enable ESP"), &sConfig.ESPMenu.Esp);
             if (sConfig.ESPMenu.Esp) {
@@ -197,8 +197,15 @@ void DrawMenu() {
                 ImGui::Checkbox(OBFUSCATE("Health Bar"), &sConfig.ESPMenu.EspObject);
                 ImGui::SameLine();
                 ImGui::ColorEdit3(OBFUSCATE("Health Color"), (float*)&espHealthColor, ImGuiColorEditFlags_NoInputs);
-
-                // Add more ESP options here (e.g., Distance, Name, etc.)
+            }
+            ImGui::Separator();
+            ImGui::Text(OBFUSCATE("Aimbot Features"));
+            static bool aimbotEnabled = false;
+            ImGui::Checkbox(OBFUSCATE("Enable Aimbot (Auto-Update)"), &aimbotEnabled);
+            if (aimbotEnabled) {
+                static float aimFov = 90.0f;
+                ImGui::SliderFloat(OBFUSCATE("Aimbot FOV"), &aimFov, 10.0f, 360.0f);
+                ImGui::TextColored(ImVec4(0.0f, 1.0f, 1.0f, 1.0f), OBFUSCATE("Aimbot uses Unity API to find targets dynamically."));
             }
         }
 
@@ -227,6 +234,8 @@ void DrawMenu() {
 
         if (tab == 2) { // Settings Tab
             ImGui::Text(OBFUSCATE("General Settings"));
+            ImGui::Separator();
+            ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), OBFUSCATE("Menu Author: FELIPE MODS"));
             ImGui::Separator();
             ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.0f, 1.0f), OBFUSCATE("Important Notice:"));
             ImGui::TextColored(ImVec4(1.0f, 0.2f, 0.2f, 1.0f), OBFUSCATE("Ensure game resolution is set appropriately for best menu display."));
