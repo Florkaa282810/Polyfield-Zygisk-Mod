@@ -52,7 +52,8 @@ struct sConfig {
     } CHAMSMenu;
 };
 
-extern sConfig Config;
+// Global instance of config
+extern sConfig settings;
 
 // Existing Chams variables
 extern const char* Chams[];
