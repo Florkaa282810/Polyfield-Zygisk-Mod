@@ -11,7 +11,7 @@ const char* MineLib = OBFUSCATE("libGLESv2.so");
 #include "variables.h"
 #include "RGB.h"
 #include "Chams.h"
-#include "ZYGOD/KittyMemory/MiniIl2Cpp.hpp"
+// #include "ZYGOD/KittyMemory/MiniIl2Cpp.hpp"
 
 using zygisk::Api;
 using zygisk::AppSpecializeArgs;

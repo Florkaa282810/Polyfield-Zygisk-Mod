@@ -1,20 +1,11 @@
-//
-// Created by AKNoryx28 on 2023/01/01.
-//
-
-/* 
- * SIMPLE Unity Il2Cpp Api Wrapper to retrieve Methods and Fields
- * Fast Header Only 😉
- *
- * Depends on KittyMemory by MJx0
- * https://github.com/MJx110/KittyMemory (b852955)
- */
-
 #pragma once
 
 #include <android/log.h>
 #include <inttypes.h>
 #include <unordered_map>
+#include <string>
+#include <sstream>
+#include <vector>
 #include "KittyMemory.h"
 #include "KittyUtils.h"
 
@@ -25,45 +16,8 @@
 #define IL2CPP_LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, IL2CPP_LOG_TAG, __VA_ARGS__))
 #define IL2CPP_LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, IL2CPP_LOG_TAG, __VA_ARGS__))
 
-struct Il2CppImage {
-    const char* name;
-    const char *nameNoExt;
-    void* assembly;
-    uint32_t typeCount;
-    uint32_t exportedTypeCount;
-    uint32_t customAttributeCount;
-};
-struct Il2CppClass {
-    const Il2CppImage* image;
-    void* gc_desc;
-    const char* name;
-    const char* namespaze;
-};
-struct Il2CppArray {
-#ifdef __LP64__
-    char pad[0x10];
-#else
-    char pad[0x8];
-#endif
-    void *bounds;
-    uintptr_t max_length;
-    void *vector[32];
-};
-struct MethodInfo {
-    void* methodPointer;
-    void* invoker_method;
-    const char* name;
-    Il2CppClass *klass;
-    void* return_type;
-    const void* parameters;
-};
-struct FieldInfo {
-    const char* name;
-    void *type;
-    Il2CppClass *parent;
-    int32_t offset;
-    uint32_t token;
-};
+// Use structures from ByNameModding/Il2Cpp.h if possible, otherwise define them here if missing
+#include "../ByNameModding/Il2Cpp.h"
 
 namespace MiniIl2Cpp_Internal
 {
@@ -81,9 +35,20 @@ namespace MiniIl2Cpp_Internal
     
     void Init() {
         if (isinit) return;
-        KittyMemory::ProcMap il2cpp = KittyMemory::getElfBaseMap("libil2cpp.so");
+        KittyMemory::ProcMap il2cpp = KittyMemory::getLibraryMap("libil2cpp.so");
         if (!il2cpp.isValid()) return;
-        #define RES_(a) a = decltype(a)(il2cpp.findSymbol(#a))
+        
+        auto find_sym = [&](const char* name) -> void* {
+            return (void*)((uintptr_t)il2cpp.startAddr + KittyMemory::getAbsoluteAddress("libil2cpp.so", 0) - (uintptr_t)il2cpp.startAddr); // Placeholder for actual symbol finding if needed
+        };
+
+        // For Zygisk/Android, we usually use dlsym or KittyScanner if available. 
+        // Since KittyScanner is missing, let's use a simpler approach or assume symbols are exported.
+        #include <dlfcn.h>
+        void* handle = dlopen("libil2cpp.so", RTLD_LAZY);
+        if(!handle) return;
+
+        #define RES_(a) a = (decltype(a))dlsym(handle, #a)
         RES_(il2cpp_domain_get);
         RES_(il2cpp_domain_get_assemblies);
         RES_(il2cpp_assembly_get_image);
@@ -108,147 +73,48 @@ public:
         std::string namespaze;
         std::string clazz;
         { // parse namespaceClass
-            std::istringstream ss(namespaceClass);
-            std::string token;
-            std::getline(ss, token, '.');
-            namespaze = token;
-            std::getline(ss, token, '.');
-            clazz = token;
+            size_t dot = namespaceClass.find_last_of('.');
+            if (dot != std::string::npos) {
+                namespaze = namespaceClass.substr(0, dot);
+                clazz = namespaceClass.substr(dot + 1);
+            } else {
+                clazz = namespaceClass;
+            }
         }
         Il2CppClass *fClass = nullptr;
         size_t size;
     	void **assemblies = il2cpp_domain_get_assemblies(il2cpp_domain_get(), &size);
-        // Version greater than 2018.3
-        if (il2cpp_image_get_class)
-        {
-            for (int i = 0; i < size; ++i) {
-                Il2CppImage *image = il2cpp_assembly_get_image(assemblies[i]);
-	        	if (!image) continue;
-                size_t typeCount = image->typeCount;
-                for (size_t i = 0; i < typeCount; ++i) {
-                    auto cls = il2cpp_image_get_class(image, i);
-                    if (!cls) continue;
-                    if (strcmp("<Module>", cls->name) == 0) continue;
-                    if (namespaze == cls->namespaze && clazz == cls->name) {
-                        fClass = cls;
-                        goto done;
-                    }
-                }
-            }
+        
+        for (int i = 0; i < size; ++i) {
+            Il2CppImage *image = il2cpp_assembly_get_image(assemblies[i]);
+            if (!image) continue;
+            // image->typeCount might not be directly accessible depending on Il2Cpp version
+            // For simplicity, we use il2cpp_class_from_name which is more reliable
+            fClass = il2cpp_class_from_name(image, namespaze.c_str(), clazz.c_str());
+            if (fClass) break;
         }
-        // Version less than 2018.3
-        else
-        {
-            auto corlib = il2cpp_get_corlib();
-            auto assemblyClass = il2cpp_class_from_name(corlib, "System.Reflection", "Assembly");
-            auto assemblyLoad = il2cpp_class_get_method_from_name(assemblyClass, "Load", 1);
-            auto assemblyGetTypes = il2cpp_class_get_method_from_name(assemblyClass, "GetTypes", 0);
-            if (!assemblyLoad || !assemblyLoad->methodPointer) {
-                IL2CPP_LOGE("missing Assembly::Load");
-                return;
-            }
-            if (!assemblyGetTypes || !assemblyGetTypes->methodPointer) {
-                IL2CPP_LOGE("missing Assembly::GetTypes");
-                return;
-            }
-            typedef void *(*Assembly_Load_ftn)(void *, void *, void *);
-            typedef void *(*Assembly_GetTypes_ftn)(void *, void *);
-            for (int i = 0; i < size; ++i) {
-                Il2CppImage *image = il2cpp_assembly_get_image(assemblies[i]);
-	            if (!image) continue;
-                auto imageName = std::string(image->name);
-                auto imageNameNoExt = imageName.substr(0, imageName.rfind('.'));
-                auto assemblyFileName = il2cpp_string_new(imageNameNoExt.data());
-                auto reflectionAssembly = ((Assembly_Load_ftn) assemblyLoad->methodPointer)(nullptr, assemblyFileName, nullptr);
-                auto reflectionTypes = (Il2CppArray *)((Assembly_GetTypes_ftn) assemblyGetTypes->methodPointer)(reflectionAssembly, nullptr);
-                auto items = reflectionTypes->vector;
-                for (int j = 0; j < reflectionTypes->max_length; ++j) {
-                    auto cls = il2cpp_class_from_system_type((void*) items[j]);
-                    if (!cls) continue;
-                    if (strcmp("<Module>", cls->name) == 0) continue;
-                    if (namespaze == cls->namespaze && clazz == cls->name) {
-                        fClass = cls;
-                        goto done;
-                    }
-                }
-            }
-        }
-        done:
+        
         if (!fClass) {
             IL2CPP_LOGE("IL2CPP Error: class %s not found", clazz.c_str());
             return;
         }
         this->Clazz = fClass;
-        this->Methods_Cache = {};
-        this->Fields_Cache = {};
     }
     
     void *GetMethodPtr(const char *name, int argc) {
-        MiniIl2Cpp_Internal::Init();
-        if (!MiniIl2Cpp_Internal::isinit)
-            return nullptr;
-        using namespace MiniIl2Cpp_Internal;
-        if (!Clazz) {
-           IL2CPP_LOGE("IL2CPP Error: class %s not found", Clazz->name);
-           return nullptr;
-        }
-        
-        std::string cachedName(std::to_string(argc));
-        cachedName.append(name);
-        if (Methods_Cache.count(cachedName) > 0)
-            return Methods_Cache[cachedName];
-        
-        auto Method = il2cpp_class_get_method_from_name(Clazz, name, argc);
-        if (!Method) {
-            IL2CPP_LOGE("IL2CPP Error: method %s argc %i in class %s not found", name, argc, Clazz->name);
-            return nullptr;
-        }
-        
-        Methods_Cache[cachedName] = Method->methodPointer;
+        if (!Clazz) return nullptr;
+        auto Method = MiniIl2Cpp_Internal::il2cpp_class_get_method_from_name(Clazz, name, argc);
+        if (!Method) return nullptr;
         return Method->methodPointer;
     }
     
     int GetFieldOffset(const char *name) {
-        MiniIl2Cpp_Internal::Init();
-        if (!MiniIl2Cpp_Internal::isinit)
-            return 0;
-        using namespace MiniIl2Cpp_Internal;
-        if (!Clazz) {
-           IL2CPP_LOGE("IL2CPP Error: class %s not found", Clazz->name);
-           return 0;
-        }
-        
-        std::string cachedName(name);
-        if (Fields_Cache.count(cachedName) > 0)
-            return Fields_Cache[cachedName];
-        
-        auto Field = il2cpp_class_get_field_from_name(Clazz, name);
-        if (!Field) {
-            IL2CPP_LOGE("IL2CPP Error: field %s in class %s not found", name, Clazz->name);
-            return 0;
-        }
-        
-        Fields_Cache[cachedName] = Field->offset;
+        if (!Clazz) return 0;
+        auto Field = MiniIl2Cpp_Internal::il2cpp_class_get_field_from_name(Clazz, name);
+        if (!Field) return 0;
         return Field->offset;
     }
     
 protected:
-    Il2CppClass *Clazz;
-    std::unordered_map<std::string, void*> Methods_Cache;
-    std::unordered_map<std::string, int> Fields_Cache;
-    
+    Il2CppClass *Clazz = nullptr;
 };
-
-/*
-int main_example()
-{
-    // LoadClass("Namespace.Class")
-    LoadClass clsPlayerController = LoadClass("PlayerScript.PlayerController");
-    // GetMethodPtr("Method", parametersCount);
-    void *updateMethod = clsPlayerController.GetMethodPtr("Update", 0);
-    
-    HOOK(updateMethod, hook_Update, orig_Update);
-    
-    return 0;
-}
-*/
