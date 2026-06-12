@@ -152,7 +152,7 @@ public:
                 return;
             }
             typedef void *(*Assembly_Load_ftn)(void *, void *, void *);
-            typedef Il2CppArray *(*Assembly_GetTypes_ftn)(void *, void *);
+            typedef void *(*Assembly_GetTypes_ftn)(void *, void *);
             for (int i = 0; i < size; ++i) {
                 Il2CppImage *image = il2cpp_assembly_get_image(assemblies[i]);
 	            if (!image) continue;
@@ -160,7 +160,7 @@ public:
                 auto imageNameNoExt = imageName.substr(0, imageName.rfind('.'));
                 auto assemblyFileName = il2cpp_string_new(imageNameNoExt.data());
                 auto reflectionAssembly = ((Assembly_Load_ftn) assemblyLoad->methodPointer)(nullptr, assemblyFileName, nullptr);
-                auto reflectionTypes = ((Assembly_GetTypes_ftn) assemblyGetTypes->methodPointer)(reflectionAssembly, nullptr);
+                auto reflectionTypes = (Il2CppArray *)((Assembly_GetTypes_ftn) assemblyGetTypes->methodPointer)(reflectionAssembly, nullptr);
                 auto items = reflectionTypes->vector;
                 for (int j = 0; j < reflectionTypes->max_length; ++j) {
                     auto cls = il2cpp_class_from_system_type((void*) items[j]);

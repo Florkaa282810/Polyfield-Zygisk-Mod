@@ -162,5 +162,9 @@ private:
     bool enable_hack = false;
 };
 
+void companion_handler(int client) {
+    // Handle companion requests here if needed
+}
+
 REGISTER_ZYGISK_MODULE(PolyfieldMod)
-REGISTER_ZYGISK_COMPANION(PolyfieldMod)
+REGISTER_ZYGISK_COMPANION(companion_handler)
