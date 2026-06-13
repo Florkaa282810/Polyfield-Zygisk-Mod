@@ -1,5 +1,5 @@
 #include "ZYGOD/Includes/obfuscate.h"
-#include "Il2cpp.h"
+#include "Il2Cpp.h"
 #include <map>
 #include <string>
 #include <dlfcn.h>
